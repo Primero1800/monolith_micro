@@ -8,6 +8,7 @@ from app.pyd.tickets import TicketAnalyzeRequest, TicketAnalyzeResponse
 
 
 def test_ticket_analyze_request_requires_text() -> None:
+    """text is a required field on the sync-analyze request payload"""
     with pytest.raises(ValidationError):
         TicketAnalyzeRequest()  # type: ignore[call-arg]
 
@@ -16,6 +17,7 @@ def test_ticket_analyze_request_requires_text() -> None:
 
 
 def test_ticket_analyze_response_defaults() -> None:
+    """All classification fields default to None until a ticket is actually classified"""
     response = TicketAnalyzeResponse(id=1, status=TicketStatusEnum.PROCESSING)
 
     assert response.category is None
@@ -27,7 +29,11 @@ def test_ticket_analyze_response_defaults() -> None:
 
 
 def test_ticket_analyze_response_from_attributes() -> None:
+    """The response schema builds from an ORM-like object via from_attributes"""
+
     class FakeTicket:
+        """Minimal object shape matching the attributes TicketAnalyzeResponse reads"""
+
         id = 42
         status = TicketStatusEnum.READY
         category = TicketCategoryEnum.RENT
@@ -43,6 +49,7 @@ def test_ticket_analyze_response_from_attributes() -> None:
 
 
 def test_llm_classification_output_valid() -> None:
+    """A well-formed LLM JSON payload parses into the expected typed fields"""
     parsed = LLMClassificationOutput.model_validate(
         {
             "category": "rent",
@@ -56,6 +63,7 @@ def test_llm_classification_output_valid() -> None:
 
 
 def test_llm_classification_output_entities_optional() -> None:
+    """entities may be omitted entirely and defaults to None"""
     parsed = LLMClassificationOutput.model_validate(
         {"category": "other", "summary": "не по теме", "priority": "low"}
     )
@@ -71,10 +79,12 @@ def test_llm_classification_output_entities_optional() -> None:
     ],
 )
 def test_llm_classification_output_rejects_invalid_payload(payload: dict) -> None:
+    """Unknown enum values or missing required fields fail validation"""
     with pytest.raises(ValidationError):
         LLMClassificationOutput.model_validate(payload)
 
 
 def test_http_exception_response_headers_optional() -> None:
+    """headers defaults to None so exceptions without custom headers still validate"""
     response = HTTPExceptionResponse(detail="oops", status_code=503)
     assert response.headers is None

@@ -6,6 +6,7 @@ from app.core.config import Settings
 
 
 def _make_settings(**overrides: object) -> Settings:
+    """Build a Settings instance from safe defaults with the given fields overridden"""
     base = dict(
         APP_NAME="test_monolith",
         APP_VERSION="0.1.0",
@@ -23,6 +24,7 @@ def _make_settings(**overrides: object) -> Settings:
 
 
 def test_database_url_format() -> None:
+    """database_url assembles the asyncpg connection string from the Postgres fields"""
     settings = _make_settings()
     assert settings.database_url == (
         "postgresql+asyncpg://postgres:postgres@db:5432/test_monolith_db"
@@ -40,11 +42,13 @@ def test_database_url_format() -> None:
     ],
 )
 def test_log_level_valid(level_name: str, expected: int) -> None:
+    """log_level converts any case of a known level name to its numeric logging constant"""
     settings = _make_settings(LOG_LEVEL=level_name)
     assert settings.log_level == expected
 
 
 def test_log_level_invalid_raises() -> None:
+    """log_level raises ValueError for a name that isn't a known logging level"""
     settings = _make_settings(LOG_LEVEL="NOT_A_LEVEL")
     with pytest.raises(ValueError, match="Invalid log level"):
         _ = settings.log_level

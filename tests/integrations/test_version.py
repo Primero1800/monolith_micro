@@ -6,6 +6,7 @@ from app.core.config import settings
 
 @pytest.mark.asyncio
 async def test_get_version(async_client: AsyncClient) -> None:
+    """/version reports the configured app name and version"""
     response = await async_client.get("/version")
     assert response.status_code == 200
     assert settings.APP_NAME in response.json()

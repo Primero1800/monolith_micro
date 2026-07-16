@@ -6,7 +6,10 @@ from app.repositories.ticket_repository import TicketRepository
 
 
 @pytest.mark.asyncio
-async def test_create_persists_ticket_with_defaults(empty_db, test_session_maker) -> None:
+async def test_create_persists_ticket_with_defaults(
+    empty_db, test_session_maker
+) -> None:
+    """create() flushes a new ticket and returns it with server-side defaults populated"""
     async with test_session_maker() as session:
         repo = TicketRepository(session)
         ticket = Ticket(
@@ -29,6 +32,7 @@ async def test_create_persists_ticket_with_defaults(empty_db, test_session_maker
 async def test_find_ready_by_normalized_text_returns_most_recent_match(
     empty_db, test_session_maker
 ) -> None:
+    """Among several ready tickets sharing normalized_text, the most recently created one wins"""
     async with test_session_maker() as session:
         repo = TicketRepository(session)
         await repo.create(
@@ -70,6 +74,7 @@ async def test_find_ready_by_normalized_text_returns_most_recent_match(
 async def test_find_ready_by_normalized_text_ignores_non_ready_status(
     empty_db, test_session_maker
 ) -> None:
+    """A ticket still in `processing` is not returned as a dedup match, even with the same text"""
     async with test_session_maker() as session:
         repo = TicketRepository(session)
         await repo.create(
@@ -92,6 +97,7 @@ async def test_find_ready_by_normalized_text_ignores_non_ready_status(
 async def test_find_ready_by_normalized_text_no_match_at_all(
     empty_db, test_session_maker
 ) -> None:
+    """Looking up text with no matching ticket at all returns None, not an error"""
     async with test_session_maker() as session:
         repo = TicketRepository(session)
         match = await repo.find_ready_by_normalized_text("совсем ничего нет")
@@ -101,6 +107,7 @@ async def test_find_ready_by_normalized_text_no_match_at_all(
 
 @pytest.mark.asyncio
 async def test_mark_ready_updates_ticket_fields(empty_db, test_session_maker) -> None:
+    """mark_ready() writes the full classification result and flips status to ready"""
     async with test_session_maker() as session:
         repo = TicketRepository(session)
         created = await repo.create(
@@ -141,6 +148,7 @@ async def test_mark_ready_updates_ticket_fields(empty_db, test_session_maker) ->
 async def test_mark_failed_increments_retries_and_sets_error(
     empty_db, test_session_maker
 ) -> None:
+    """mark_failed() flips status to failed, records the error, and bumps retries each call"""
     async with test_session_maker() as session:
         repo = TicketRepository(session)
         created = await repo.create(

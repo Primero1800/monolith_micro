@@ -10,10 +10,12 @@ from app.main import app
 
 
 def _override_ai_client(fake_client: AsyncMock) -> None:
+    """Swap the app's real AI client dependency for the given fake, for this test's requests"""
     app.dependency_overrides[get_ai_client] = lambda: fake_client
 
 
 def _llm_success(category: str, summary: str, priority: str) -> ChatResult:
+    """Build a ChatResult whose content is a valid LLMClassificationOutput JSON payload"""
     return ChatResult(
         content=json.dumps(
             {"category": category, "summary": summary, "priority": priority}
@@ -28,6 +30,7 @@ def _llm_success(category: str, summary: str, priority: str) -> ChatResult:
 async def test_analyze_degenerate_text_returns_other_without_llm(
     empty_db, async_client: AsyncClient
 ) -> None:
+    """Punctuation-only input is classified as "other" over the real DB, without calling the LLM"""
     fake_ai_client = AsyncMock()
     _override_ai_client(fake_ai_client)
 
@@ -47,6 +50,7 @@ async def test_analyze_degenerate_text_returns_other_without_llm(
 async def test_analyze_new_text_calls_llm_and_returns_structured_result(
     empty_db, async_client: AsyncClient
 ) -> None:
+    """A fresh, long ticket text (no regex fast-path match) is classified via the (mocked) LLM"""
     fake_ai_client = AsyncMock()
     fake_ai_client.chat.return_value = _llm_success(
         "rent", "Клиент хочет снять квартиру", "medium"
@@ -55,7 +59,10 @@ async def test_analyze_new_text_calls_llm_and_returns_structured_result(
 
     response = await async_client.post(
         "/api/v1/tickets/analyze",
-        json={"text": "Здравствуйте, хочу снять квартиру в центре"},
+        json={
+            "text": "Здравствуйте, расскажите пожалуйста о ваших актуальных "
+            "предложениях по недвижимости в центре города"
+        },
     )
 
     assert response.status_code == 200
@@ -71,13 +78,17 @@ async def test_analyze_new_text_calls_llm_and_returns_structured_result(
 async def test_analyze_duplicate_request_skips_second_llm_call(
     empty_db, async_client: AsyncClient
 ) -> None:
+    """Submitting the same text twice reuses the first ticket's result and skips a second LLM call"""
     fake_ai_client = AsyncMock()
     fake_ai_client.chat.return_value = _llm_success(
         "sale", "Клиент хочет продать квартиру", "high"
     )
     _override_ai_client(fake_ai_client)
 
-    text = {"text": "Хочу продать квартиру в центре"}
+    text = {
+        "text": "Добрый день, хотелось бы узнать больше о вашей компании "
+        "и вариантах, которые вы можете предложить"
+    }
     first = await async_client.post("/api/v1/tickets/analyze", json=text)
     second = await async_client.post("/api/v1/tickets/analyze", json=text)
 
@@ -90,9 +101,30 @@ async def test_analyze_duplicate_request_skips_second_llm_call(
 
 
 @pytest.mark.asyncio
+async def test_analyze_short_unambiguous_text_uses_regex_fast_path(
+    empty_db, async_client: AsyncClient
+) -> None:
+    """Short text with exactly one category keyword is classified without any LLM call"""
+    fake_ai_client = AsyncMock()
+    _override_ai_client(fake_ai_client)
+
+    response = await async_client.post(
+        "/api/v1/tickets/analyze", json={"text": "хочу снять квартиру"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready"
+    assert body["category"] == "rent"
+    assert body["ai_used"] is False
+    fake_ai_client.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_analyze_llm_failure_marks_ticket_failed_but_returns_200(
     empty_db, async_client: AsyncClient
 ) -> None:
+    """An LLM call with no content marks the ticket failed, but the HTTP response is still 200"""
     fake_ai_client = AsyncMock()
     fake_ai_client.chat.return_value = ChatResult(
         content=None, prompt_tokens=0, completion_tokens=0, total_tokens=0
@@ -114,6 +146,7 @@ async def test_analyze_llm_failure_marks_ticket_failed_but_returns_200(
 async def test_analyze_llm_invalid_json_marks_ticket_failed(
     empty_db, async_client: AsyncClient
 ) -> None:
+    """LLM content that isn't valid classification JSON also marks the ticket failed"""
     fake_ai_client = AsyncMock()
     fake_ai_client.chat.return_value = ChatResult(
         content="not a json object at all",
@@ -136,6 +169,7 @@ async def test_analyze_llm_invalid_json_marks_ticket_failed(
 async def test_analyze_rejects_missing_text_field(
     empty_db, async_client: AsyncClient
 ) -> None:
+    """A request body without the required text field is rejected with 422, before hitting the service"""
     response = await async_client.post("/api/v1/tickets/analyze", json={})
 
     assert response.status_code == 422

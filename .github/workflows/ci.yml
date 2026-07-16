@@ -45,8 +45,8 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction
 
-      - name: Black
-        run: poetry run black --check app tests
+      - name: Ruff format
+        run: poetry run ruff format --check app tests
 
       - name: Ruff
         run: poetry run ruff check app tests

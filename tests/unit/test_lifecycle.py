@@ -7,6 +7,7 @@ from app.lifecycle import AppLifecycle
 
 @pytest.mark.asyncio
 async def test_on_startup_initializes_db_and_aiohttp_session(mocker) -> None:
+    """on_startup initializes the DB pool and stores the shared aiohttp session"""
     init_db = mocker.patch("app.lifecycle.initialize_db", new_callable=AsyncMock)
     fake_session = AsyncMock()
     get_session = mocker.patch(
@@ -24,6 +25,7 @@ async def test_on_startup_initializes_db_and_aiohttp_session(mocker) -> None:
 
 @pytest.mark.asyncio
 async def test_on_startup_raises_runtime_error_when_db_init_fails(mocker) -> None:
+    """A DB initialization failure is wrapped into a RuntimeError, not left as the raw driver error"""
     mocker.patch(
         "app.lifecycle.initialize_db",
         new_callable=AsyncMock,
@@ -38,6 +40,7 @@ async def test_on_startup_raises_runtime_error_when_db_init_fails(mocker) -> Non
 
 @pytest.mark.asyncio
 async def test_on_shutdown_closes_aiohttp_session_if_present(mocker) -> None:
+    """on_shutdown closes the aiohttp session when one was created during startup"""
     mocker.patch("app.lifecycle.initialize_db", new_callable=AsyncMock)
     lifecycle = AppLifecycle(app=None)  # type: ignore[arg-type]
     lifecycle.aiohttp_session = AsyncMock()
@@ -49,6 +52,7 @@ async def test_on_shutdown_closes_aiohttp_session_if_present(mocker) -> None:
 
 @pytest.mark.asyncio
 async def test_on_shutdown_is_safe_without_a_session() -> None:
+    """on_shutdown doesn't error out when startup never ran (no aiohttp session to close)"""
     lifecycle = AppLifecycle(app=None)  # type: ignore[arg-type]
 
     await lifecycle.on_shutdown()
