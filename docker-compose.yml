@@ -9,9 +9,7 @@ services:
       - "8000:8000"
     depends_on:
       - db
-    volumes:
-      - ./app:/app/app
-    command: ["sh", "-c", "poetry run alembic upgrade head && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
+    command: ["sh", "-c", "poetry run alembic upgrade head && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000"]
     networks:
       - test_monolith_network
 
@@ -25,7 +23,7 @@ services:
     ports:
       - "5433:${POSTGRES_PORT}"
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data
     command: -p ${POSTGRES_PORT}
     networks:
       - test_monolith_network
