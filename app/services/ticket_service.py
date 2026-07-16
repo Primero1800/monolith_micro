@@ -1,5 +1,6 @@
 import logging
 import time
+from collections.abc import Sequence
 
 from pydantic import ValidationError
 
@@ -44,23 +45,46 @@ class TicketService(BaseService):
         # 2. Save the ticket right away so we don't lose it if something fails later
         ticket = await self._save_processing_ticket(text, normalized_text)
 
+        return await self._run_pipeline(ticket.id, text, normalized_text)
+
+    async def claim_pending(
+        self, batch_size: int, stuck_after_sec: int
+    ) -> Sequence[Ticket]:
+        """Claim a batch of tickets for the scheduler to (re)classify"""
+        async with self.uow_factory as uow:
+            return await uow.ticket_repository.claim_pending(
+                batch_size, stuck_after_sec
+            )
+
+    async def process_pending(self, ticket: Ticket) -> Ticket:
+        """Run the classification pipeline against a ticket picked up by the scheduler"""
+        return await self._run_pipeline(
+            ticket.id, ticket.raw_text, ticket.normalized_text
+        )
+
+    async def _run_pipeline(
+        self, ticket_id: int, raw_text: str, normalized_text: str
+    ) -> Ticket:
+        """Run classification steps 3-6 against an already-saved ticket"""
         # 3. If the text is empty or meaningless, just mark it "other" and stop
-        degenerate = await self._check_degenerate(ticket.id, normalized_text)
+        degenerate = await self._check_degenerate(ticket_id, normalized_text)
         if degenerate is not None:
             return degenerate
 
         # 4. If we've already answered this exact text before, reuse that answer
-        duplicate = await self._check_duplicate(ticket.id, normalized_text)
+        duplicate = await self._check_duplicate(ticket_id, normalized_text)
         if duplicate is not None:
             return duplicate
 
         # 5. If the text is short and matches exactly one category, skip the LLM
-        fast_path = await self._check_regex_fast_path(ticket.id, text, normalized_text)
+        fast_path = await self._check_regex_fast_path(
+            ticket_id, raw_text, normalized_text
+        )
         if fast_path is not None:
             return fast_path
 
         # 6. Otherwise ask the LLM to classify and summarize, then save the result
-        return await self._classify_with_llm(ticket.id, text)
+        return await self._classify_with_llm(ticket_id, raw_text)
 
     async def _save_processing_ticket(
         self, raw_text: str, normalized_text: str
@@ -170,7 +194,7 @@ class TicketService(BaseService):
             {"role": "user", "content": text},
         ]
 
-        started_at = time.monotonic()
+        started_at = time.time()
         try:
             chat_result = await self.ai_client.chat(messages, json_mode=True)
             if chat_result.content is None:
@@ -192,7 +216,7 @@ class TicketService(BaseService):
             ai_used=True,
             prompt_tokens=chat_result.prompt_tokens,
             completion_tokens=chat_result.completion_tokens,
-            llm_response_time_ms=int((time.monotonic() - started_at) * 1000),
+            llm_response_time_ms=int((time.time() - started_at) * 1000),
         )
 
     async def _mark_failed(self, ticket_id: int, error_message: str) -> Ticket:

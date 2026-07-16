@@ -15,6 +15,15 @@ class TicketAnalyzeRequest(BaseModel):
     )
 
 
+class TicketDraftResponse(BaseModel):
+    """Minimal result of queuing a ticket for asynchronous classification"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    status: TicketStatusEnum
+
+
 class TicketAnalyzeResponse(BaseModel):
     """Structured result of synchronous ticket analysis"""
 

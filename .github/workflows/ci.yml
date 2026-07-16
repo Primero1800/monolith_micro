@@ -29,6 +29,9 @@ jobs:
       LLM_MODEL: mistral-small-latest
       LLM_TIMEOUT_SEC: 30
       SCHEDULER_TICK_SEC: 5
+      SCHEDULER_BATCH_SIZE: 5
+      PROCESSING_TIMEOUT_SEC: 30
+      MAX_RETRIES: 3
 
     steps:
       - uses: actions/checkout@v4
