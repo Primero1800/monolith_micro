@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.logging import logger
 from app.core.database import async_database_session_maker
+from app.repositories.ticket_repository import TicketRepository
 
 
 class UnitOfWork:
@@ -18,8 +19,9 @@ class UnitOfWork:
         self.session_factory = session_factory
 
     async def __aenter__(self) -> Any:
-        """Open a new database session and return the unit of work"""
+        """Open a new database session, attach repositories, and return the unit of work"""
         self.session = self.session_factory()
+        self.ticket_repository = TicketRepository(self.session)
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:

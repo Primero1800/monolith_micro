@@ -15,11 +15,16 @@ class Ticket(Base):
     __tablename__ = "tickets"
     __table_args__ = (
         Index("ix_tickets_status_created_at", "status", "created_at"),
+        Index("ix_tickets_normalized_text", "normalized_text"),
         {"comment": "Обращения в поддержку — вход, классификация и результат"},
     )
 
     id: Mapped[int_pk]
     raw_text: Mapped[str] = mapped_column(Text, comment="Исходный текст обращения")
+    normalized_text: Mapped[str] = mapped_column(
+        Text,
+        comment="raw_text в нижнем регистре без пунктуации — для поиска дублей",
+    )
     status: Mapped[TicketStatusEnum] = mapped_column(
         SqlEnum(TicketStatusEnum),
         default=TicketStatusEnum.DRAFT,
