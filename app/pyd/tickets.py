@@ -27,4 +27,14 @@ class TicketAnalyzeResponse(BaseModel):
     priority: TicketPriorityEnum | None = None
     entities: dict[str, Any] | None = None
     ai_used: bool | None = None
-    message: str | None = None
+
+
+class TicketAdminResponse(TicketAnalyzeResponse):
+    """Extended ticket view for admins — public fields plus internal technical data"""
+
+    raw_text: str
+    prompt_tokens: int
+    completion_tokens: int
+    llm_response_time_ms: int | None = None
+    retries: int
+    error_message: str | None = None

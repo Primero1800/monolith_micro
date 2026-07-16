@@ -25,7 +25,6 @@ def test_ticket_analyze_response_defaults() -> None:
     assert response.priority is None
     assert response.entities is None
     assert response.ai_used is None
-    assert response.message is None
 
 
 def test_ticket_analyze_response_from_attributes() -> None:
@@ -41,7 +40,6 @@ def test_ticket_analyze_response_from_attributes() -> None:
         priority = TicketPriorityEnum.MEDIUM
         entities = {"budget": "40000"}
         ai_used = True
-        message = None
 
     response = TicketAnalyzeResponse.model_validate(FakeTicket())
     assert response.id == 42

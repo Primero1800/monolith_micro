@@ -24,6 +24,18 @@ class TicketService(BaseService):
     """Orchestrates ticket classification: dedup check, regex fast-path, LLM fallback"""
 
     @log_decorator(level=logging.INFO)
+    async def create_draft(self, text: str) -> Ticket:
+        """Save a ticket as draft for the scheduler to pick up and classify later"""
+        normalized_text = normalize_text(text)
+        return await self.uow.ticket_repository.create(  # type: ignore[union-attr]
+            Ticket(
+                raw_text=text,
+                normalized_text=normalized_text,
+                status=TicketStatusEnum.DRAFT,
+            )
+        )
+
+    @log_decorator(level=logging.INFO)
     async def analyze(self, text: str) -> Ticket:
         """Classify and summarize a ticket text, chaining the classification steps"""
         # 1. Clean up the text so it's easy to compare and classify
@@ -187,3 +199,7 @@ class TicketService(BaseService):
         """Record a failed classification attempt so it can be retried or reviewed later"""
         async with self.uow_factory as uow:
             return await uow.ticket_repository.mark_failed(ticket_id, error_message)
+
+    async def get_ticket(self, ticket_id: int) -> Ticket | None:
+        """Fetch a ticket by id, for the public and admin GET endpoints"""
+        return await self.uow.ticket_repository.get_by_id(ticket_id)  # type: ignore[union-attr]

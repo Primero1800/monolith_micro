@@ -28,6 +28,20 @@ class TicketRepository(BaseRepository):
         return ticket
 
     @log_decorator(level=logging.DEBUG)
+    async def get_by_id(self, ticket_id: int) -> Ticket | None:
+        """Fetch a ticket by its id
+
+        :param:
+            ticket_id: id of the ticket to fetch
+
+        :returns:
+            ticket: the matching Ticket, or None if not found
+        """
+        stmt = select(Ticket).where(Ticket.id == ticket_id)
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @log_decorator(level=logging.DEBUG)
     async def find_ready_by_normalized_text(
         self, normalized_text: str
     ) -> Ticket | None:
