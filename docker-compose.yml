@@ -1,0 +1,38 @@
+services:
+  service:
+    restart: unless-stopped
+    env_file:
+      - .env
+    build:
+      context: ./
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    volumes:
+      - ./app:/app/app
+    command: ["sh", "-c", "poetry run alembic upgrade head && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
+    networks:
+      - test_monolith_network
+
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    env_file:
+      - .env
+    expose:
+      - "${POSTGRES_PORT}"
+    ports:
+      - "5433:${POSTGRES_PORT}"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    command: -p ${POSTGRES_PORT}
+    networks:
+      - test_monolith_network
+
+volumes:
+  postgres_data:
+
+networks:
+  test_monolith_network:
+    driver: bridge

@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Mypy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# Alembic (не коммитим сгенерированные файлы кэша)
+*.pyc
+
+# Logs — файлы создаются автоматически при старте приложения (RotatingFileHandler),
+# в гит не коммитим ничего, кроме .gitkeep (держит папку в репозитории)
+app/logs/*
+!app/logs/.gitkeep
+
+# Docker
+*.dockerignore
+
+# Служебные файлы разработки — не должны попасть в публичный репозиторий
+CLAUDE.md
+FASTAPI_CARCASS_*.md
