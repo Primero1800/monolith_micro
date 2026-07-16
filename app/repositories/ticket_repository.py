@@ -80,3 +80,27 @@ class TicketRepository(BaseRepository):
         )
         updated = await self._session.execute(stmt)
         return updated.scalar_one()
+
+    @log_decorator(level=logging.DEBUG)
+    async def mark_failed(self, ticket_id: int, error_message: str) -> Ticket:
+        """Mark a ticket as failed and bump its retry counter
+
+        :param:
+            ticket_id: id of the ticket to update
+            error_message: description of what went wrong, for admin visibility
+
+        :returns:
+            ticket: the updated Ticket, with fresh values read back from the database
+        """
+        stmt = (
+            update(Ticket)
+            .where(Ticket.id == ticket_id)
+            .values(
+                status=TicketStatusEnum.FAILED,
+                retries=Ticket.retries + 1,
+                error_message=error_message,
+            )
+            .returning(Ticket)
+        )
+        updated = await self._session.execute(stmt)
+        return updated.scalar_one()
