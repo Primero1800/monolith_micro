@@ -10,6 +10,7 @@ class AppLifecycle:
     """Manages initialization and cleanup of application components"""
 
     def __init__(self, app: FastAPI) -> None:
+        """Bind the FastAPI app instance and reset the aiohttp session slot"""
         self.app = app
         self.aiohttp_session: aiohttp.ClientSession | None = None
 

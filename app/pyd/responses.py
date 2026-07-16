@@ -7,5 +7,5 @@ class HTTPExceptionResponse(BaseModel):
     """Schema for HTTP exception response"""
 
     detail: str
-    headers: dict[str, Any]
+    headers: dict[str, Any] | None = None
     status_code: int

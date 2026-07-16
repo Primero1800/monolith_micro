@@ -30,6 +30,7 @@ class HealthCheckService(BaseService):
         try:
 
             async def _exec() -> None:
+                """Run the timed-out SELECT 1 probe inside a fresh unit of work"""
                 async with self.uow_factory as uow:
                     await uow.session.execute(
                         text(f"SET LOCAL statement_timeout = {ms}")

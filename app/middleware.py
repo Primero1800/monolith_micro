@@ -13,6 +13,7 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
+        """Time the request, log slow requests, and convert unhandled exceptions to a 500 response"""
         start_time = time.time()
         try:
             response = await call_next(request)

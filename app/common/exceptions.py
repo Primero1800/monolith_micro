@@ -13,6 +13,7 @@ class BaseCustomException(Exception):
         status_code: int = status.HTTP_503_SERVICE_UNAVAILABLE,
         headers: dict[str, str] | None = None,
     ) -> None:
+        """Store the detail, HTTP status code, and optional headers for this exception"""
         super().__init__(detail)
         self.status_code = status_code
         self.detail = detail
@@ -28,6 +29,7 @@ class IntegrityDataException(BaseCustomException):
         status_code: int = status.HTTP_503_SERVICE_UNAVAILABLE,
         headers: dict[str, str] | None = None,
     ) -> None:
+        """Strip the raw Postgres `DETAIL:` prefix from the constraint violation message"""
         detail_text = re.search(r"DETAIL: (.+)", detail or "")
         refined_message = detail_text.group(1).strip() if detail_text else detail
         super().__init__(

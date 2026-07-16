@@ -14,13 +14,16 @@ class UnitOfWork:
     """Unit of Work for coordinating database transactions"""
 
     def __init__(self, session_factory: Callable[[], AsyncSession]) -> None:
+        """Store the session factory used to open a new session per unit of work"""
         self.session_factory = session_factory
 
     async def __aenter__(self) -> Any:
+        """Open a new database session and return the unit of work"""
         self.session = self.session_factory()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Commit on success, roll back and log on failure, always closing the session"""
         try:
             if exc_type is not None:
                 await self.rollback()
@@ -56,6 +59,7 @@ class UnitOfWork:
             await self.session.close()
 
     async def _handle_commit_error(self, e: Exception) -> None:
+        """Log a commit failure classified by SQLAlchemy exception type"""
         if isinstance(
             e,
             (
@@ -72,9 +76,11 @@ class UnitOfWork:
             logger.error(f"DB COMMIT FAILED (Unknown): {e}")
 
     async def commit(self) -> None:
+        """Commit the current session"""
         await self.session.commit()
 
     async def rollback(self) -> None:
+        """Roll back the current session"""
         await self.session.rollback()
 
 

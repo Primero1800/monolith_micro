@@ -18,8 +18,11 @@ def external_request_exception_handler(
     """Decorator to handle exceptions from external HTTP requests"""
 
     def decorator(func: Any) -> Any:
+        """Wrap func so its HTTP-related exceptions are logged and normalized"""
+
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            """Run func, translating aiohttp/connection errors per the enclosing decorator's config"""
             start = time.time()
             try:
                 return await func(*args, **kwargs)

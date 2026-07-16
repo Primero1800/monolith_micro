@@ -20,6 +20,7 @@ class BaseService:
         base_deps: BaseDeps,
         uow: UnitOfWork | None = None,
     ) -> None:
+        """Unpack shared infrastructure dependencies and bind the optional UoW session"""
         self.uow_factory = base_deps.uow_factory
         self.uow = uow
         self.ai_client = base_deps.ai_client

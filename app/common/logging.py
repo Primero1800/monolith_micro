@@ -23,9 +23,11 @@ class CustomFormatter(logging.Formatter):
     """Custom log formatter with terminal color support"""
 
     def __init__(self, fmt: str, datefmt: str):
+        """Store the format and date format strings for the base Formatter"""
         super().__init__(fmt, datefmt)
 
     def format(self, record: logging.LogRecord) -> str:
+        """Colorize the level name and message before formatting"""
         level_colors = {
             logging.INFO: GREEN_COLOR,
             logging.DEBUG: YELLOW_COLOR,
@@ -46,6 +48,7 @@ class FileFormatter(logging.Formatter):
     """Log formatter that removes terminal colors for file storage"""
 
     def format(self, record: logging.LogRecord) -> str:
+        """Format the record and strip ANSI color codes for file storage"""
         pattern = r"\033\[\d{1,2}m"
         message = super().format(record)
         return re.sub(pattern, "", message)
@@ -62,6 +65,7 @@ handler.setFormatter(CustomFormatter(fmt, datefmt))
 logger.addHandler(handler)
 
 root_dir = os.path.dirname(os.path.abspath(__file__))
+app_root = os.path.dirname(root_dir)
 file_handler = logging.handlers.RotatingFileHandler(
     os.path.join(root_dir, "..", "logs", "app_log.log"),
     maxBytes=5 * 1024 * 1024,
@@ -82,10 +86,16 @@ def log_decorator(
     """Decorator to log function entry, exit, and execution time"""
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        """Wrap func to log its start/completion and execution time"""
+
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
+            """Log entry, run func, then log completion (with timing at INFO level)"""
             calling_module = inspect.getmodule(func)
-            filename = calling_module.__file__[4:]  # type: ignore
+            module_file = (
+                getattr(calling_module, "__file__", None) or func.__code__.co_filename
+            )
+            filename = os.path.relpath(module_file, start=app_root)
             _, lineno = inspect.getsourcelines(func)
             start_time = time.time()
             if level == logging.INFO:
@@ -120,6 +130,11 @@ def log_decorator(
 
 
 def log_message(message: str, level: int) -> None:
+    """Dispatch message to the logger at the given level
+
+    :raise:
+        ValueError: if level is not one of the supported logging levels
+    """
     if level == logging.INFO:
         logger.info(message)
     elif level == logging.DEBUG:

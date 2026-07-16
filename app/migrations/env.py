@@ -21,6 +21,7 @@ config.set_main_option("sqlalchemy.url", str(settings.database_url))
 
 
 def run_migrations_offline() -> None:
+    """Configure Alembic for offline mode (emits SQL without a live DB connection)"""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -33,12 +34,14 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
+    """Run migrations synchronously within an existing sync connection"""
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_async_migrations() -> None:
+    """Open an async engine, run migrations through it, then dispose the engine"""
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -50,6 +53,7 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
+    """Configure Alembic for online mode by driving the async migration runner"""
     asyncio.run(run_async_migrations())
 
 

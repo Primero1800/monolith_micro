@@ -27,6 +27,7 @@ def _create_service(service_class: Type[T]) -> Callable:
         base_deps: Annotated[BaseDeps, Depends(get_base_deps)],
         uow: Annotated[UnitOfWork, Depends(get_uow)],
     ) -> T:
+        """FastAPI dependency: instantiate service_class with a request-scoped UnitOfWork"""
         return service_class(base_deps=base_deps, uow=uow)
 
     return _dependency
@@ -38,6 +39,7 @@ def _create_service_without_session(service_class: Type[T]) -> Callable:
     async def _dependency(
         base_deps: Annotated[BaseDeps, Depends(get_base_deps)],
     ) -> T:
+        """FastAPI dependency: instantiate service_class without a UnitOfWork session"""
         return service_class(base_deps=base_deps, uow=None)
 
     return _dependency
