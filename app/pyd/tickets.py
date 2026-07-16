@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.common.enums import TicketCategoryEnum, TicketPriorityEnum, TicketStatusEnum
 
@@ -16,6 +16,8 @@ class TicketAnalyzeRequest(BaseModel):
 
 class TicketAnalyzeResponse(BaseModel):
     """Structured result of synchronous ticket analysis"""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     status: TicketStatusEnum

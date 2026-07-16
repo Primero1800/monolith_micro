@@ -1,10 +1,10 @@
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.common.enums import TicketStatusEnum
 from app.common.logging import log_decorator
-from app.models.ticket import Ticket
+from app.models.ticket import ClassificationResult, Ticket
 from app.repositories.base_repository import BaseRepository
 from app.repositories.repository_error_handler import repository_error_handler
 
@@ -53,3 +53,30 @@ class TicketRepository(BaseRepository):
         )
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
+
+    @log_decorator(level=logging.DEBUG)
+    async def mark_ready(self, ticket_id: int, result: ClassificationResult) -> Ticket:
+        """Apply a classification result to a ticket and mark it ready
+
+        :param:
+            ticket_id: id of the ticket to update
+            result: classification data to apply, from whichever pipeline step produced it
+
+        :returns:
+            ticket: the updated Ticket, with fresh values read back from the database
+        """
+        stmt = (
+            update(Ticket)
+            .where(Ticket.id == ticket_id)
+            .values(
+                status=TicketStatusEnum.READY,
+                category=result.category,
+                summary=result.summary,
+                priority=result.priority,
+                entities=result.entities,
+                ai_used=result.ai_used,
+            )
+            .returning(Ticket)
+        )
+        updated = await self._session.execute(stmt)
+        return updated.scalar_one()

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import Enum as SqlEnum
@@ -7,6 +8,17 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.enums import TicketCategoryEnum, TicketPriorityEnum, TicketStatusEnum
 from app.models.base import Base, int_pk
+
+
+@dataclass
+class ClassificationResult:
+    """Outcome of classifying a ticket, regardless of which pipeline step produced it"""
+
+    category: TicketCategoryEnum
+    summary: str
+    priority: TicketPriorityEnum
+    entities: dict[str, Any] | None
+    ai_used: bool
 
 
 class Ticket(Base):
