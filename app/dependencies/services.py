@@ -6,6 +6,7 @@ from app.adapters.ai_client import AIClientAbstract
 from app.dependencies.infrastructure import get_ai_client
 from app.services.base import BaseDeps, BaseService
 from app.services.health_check_service import HealthCheckService
+from app.services.ticket_service import TicketService
 from app.uow import UnitOfWork, get_uow_factory, get_uow
 
 
@@ -48,3 +49,5 @@ def _create_service_without_session(service_class: Type[T]) -> Callable:
 get_health_check_service_without_session = _create_service_without_session(
     HealthCheckService
 )
+get_ticket_service_without_session = _create_service_without_session(TicketService)
+get_ticket_service = _create_service(TicketService)
