@@ -81,6 +81,10 @@
 Два входа (синхронный и асинхронный) используют один и тот же общий пайплайн классификации —
 логика не дублируется между ручками и планировщиком.
 
+> Схема ниже большая и в свёрнутом виде читается плохо — для нормального просмотра нажми кнопку
+> разворота на самой диаграмме (иконка со стрелками в разные стороны, обычно в правом верхнем углу).
+> Более компактные версии по отдельности — фрагментами ниже.
+
 ```mermaid
 flowchart TD
     subgraph SYNC["Sync: POST /api/v1/tickets/analyze"]
@@ -126,6 +130,116 @@ flowchart TD
     FAILED -.-> GET
     DEAD -.-> GET
 ```
+
+Общая диаграмма выше плохо читается развёрнутой прямо в ленте (GitHub схлопывает большие Mermaid-схемы) —
+ниже те же процессы отдельными фрагментами, каждый по одной ручке/воркеру.
+
+### Фрагмент: sync-ручка
+
+```mermaid
+flowchart TD
+    A([Текст]) --> B[Нормализация]
+    B --> C[(ticket: processing)]
+    C --> D{Пайплайн классификации}
+    D -->|успех| E[(status: ready)]
+    D -->|сбой| F[(status: failed, retries++)]
+    E --> G([Ответ: полный JSON])
+    F --> G
+```
+
+### Фрагмент: async-ручка
+
+```mermaid
+flowchart TD
+    A([Текст]) --> B[Нормализация]
+    B --> C[(ticket: draft)]
+    C --> D([Ответ: id, status])
+    D -.клиент опрашивает позже.-> E([GET /api/v1/tickets/id])
+    C -.планировщик подхватит.-> F[Пайплайн классификации]
+```
+
+### Фрагмент: планировщик (воркер)
+
+```mermaid
+flowchart TD
+    A[Тик каждые SCHEDULER_TICK_SEC] --> B[Атомарный захват батча: draft / failed / зависший processing]
+    B --> C[(статус -> processing)]
+    C --> D[Пайплайн классификации, конкурентно на каждый тикет]
+    D -->|успех| E[(status: ready)]
+    D -->|сбой| F[(status: failed, retries++)]
+    F -->|retries меньше MAX_RETRIES| A
+    F -->|retries достиг MAX_RETRIES| G[(status: dead_letter)]
+```
+
+### Структура проекта
+
+```
+app
+├── adapters                 # AIClientAbstract + UniversalChatClient (OpenAI-совместимый LLM-клиент)
+│   ├── ai_client.py
+│   └── __init__.py
+├── api                       # роутеры FastAPI
+│   ├── health_check.py
+│   ├── __init__.py
+│   └── tickets.py
+├── common                   # enum'ы, исключения, логирование — общее для всего приложения
+│   ├── enums.py
+│   ├── exceptions.py
+│   ├── __init__.py
+│   └── logging.py
+├── core                      # конфиг, БД, обработчики ошибок инфраструктурного уровня
+│   ├── aiohttp_exception_handler.py
+│   ├── config.py
+│   ├── database.py
+│   └── __init__.py
+├── dependencies              # сборка зависимостей для FastAPI Depends
+│   ├── infrastructure.py
+│   ├── __init__.py
+│   └── services.py
+├── migrations                # Alembic
+│   ├── versions
+│   │   ├── 2026_07_16_1005-5792dfe4a836_add_tickets_table.py
+│   │   ├── 2026_07_16_1021-4103ebb98256_add_tickets_normalized_text.py
+│   │   ├── 2026_07_16_1148-d234ba37270d_split_tokens_used_into_prompt_and_.py
+│   │   └── 2026_07_16_1214-35bd5371b5d9_rename_processing_time_ms_to_llm_.py
+│   ├── env.py
+│   ├── README
+│   └── script.py.mako
+├── models                    # SQLAlchemy ORM
+│   ├── base.py
+│   ├── __init__.py
+│   └── ticket.py
+├── pyd                       # Pydantic-схемы запросов/ответов
+│   ├── __init__.py
+│   ├── llm_classification.py
+│   ├── responses.py
+│   └── tickets.py
+├── repositories
+│   ├── base_repository.py
+│   ├── __init__.py
+│   ├── repository_error_handler.py
+│   └── ticket_repository.py
+├── services                  # бизнес-логика: пайплайн классификации, планировщик
+│   ├── base.py
+│   ├── health_check_service.py
+│   ├── __init__.py
+│   ├── prompt_service.py
+│   ├── ticket_scheduler_service.py
+│   └── ticket_service.py
+├── utils                     # нормализация текста, regex fast-path, обёртка планировщика
+│   ├── category_matching.py
+│   ├── __init__.py
+│   ├── text_normalization.py
+│   └── ticket_scheduler_func.py
+├── __init__.py
+├── lifecycle.py              # старт/шатдаун: БД, APScheduler
+├── main.py                   # точка входа FastAPI
+├── middleware.py
+└── uow.py                    # Unit of Work
+```
+
+`tests/` не разворачиваю подробно — 140 тестов (unit + интеграционные через testcontainers), 98% покрытия
+(`poetry run pytest --cov-report=term-missing:skip-covered --cov=app tests/`).
 
 ## Что реально работает, а что замокано
 
