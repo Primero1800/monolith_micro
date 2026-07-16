@@ -14,6 +14,7 @@ from testcontainers.postgres import PostgresContainer
 
 @pytest.fixture(scope="session")
 def postgres_container() -> Generator[PostgresContainer, None, None]:
+    """Spin up a throwaway Postgres container for the test session and export its connection env vars"""
     with PostgresContainer("postgres:15") as postgres:
         url = make_url(postgres.get_connection_url())
         os.environ["POSTGRES_USER"] = str(url.username)
@@ -26,6 +27,7 @@ def postgres_container() -> Generator[PostgresContainer, None, None]:
 
 @pytest.fixture(scope="session")
 def test_engine(postgres_container: PostgresContainer):
+    """Build an async SQLAlchemy engine pointed at the test Postgres container"""
     from sqlalchemy.pool import NullPool
 
     url = make_url(postgres_container.get_connection_url())
@@ -35,11 +37,13 @@ def test_engine(postgres_container: PostgresContainer):
 
 @pytest.fixture(scope="session")
 def test_session_maker(test_engine):
+    """Session factory bound to the test engine, for direct repository/UoW tests"""
     return async_sessionmaker(bind=test_engine, expire_on_commit=False)
 
 
 @pytest.fixture(scope="session")
 def event_loop() -> Generator[AbstractEventLoop, Any, None]:
+    """Single session-scoped event loop, so the session-scoped Postgres container survives across tests"""
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
@@ -47,6 +51,7 @@ def event_loop() -> Generator[AbstractEventLoop, Any, None]:
 
 @pytest_asyncio.fixture(scope="function")
 async def empty_db(test_engine) -> AsyncGenerator[None, None]:
+    """Create all tables before a test and drop them after, for test isolation"""
     from app.models import Base
 
     async with test_engine.begin() as conn:
@@ -58,19 +63,23 @@ async def empty_db(test_engine) -> AsyncGenerator[None, None]:
 
 @pytest_asyncio.fixture
 async def async_client(test_session_maker) -> AsyncGenerator[AsyncClient, None]:
+    """HTTPX client wired to the app with DB dependencies overridden to use the test Postgres container"""
     from app.main import app
     from app.core.database import get_session
     from app.uow import get_uow, get_uow_factory, UnitOfWork
 
     async def _override_get_uow():
+        """FastAPI override: request-scoped UnitOfWork bound to the test session maker"""
         async with UnitOfWork(session_factory=test_session_maker) as uow:
             yield uow
 
     async def _override_get_session():
+        """FastAPI override: plain DB session bound to the test session maker"""
         async with test_session_maker() as session:
             yield session
 
     def _override_get_uow_factory():
+        """FastAPI override: UnitOfWork factory bound to the test session maker"""
         return UnitOfWork(session_factory=test_session_maker)
 
     app.dependency_overrides[get_uow] = _override_get_uow
