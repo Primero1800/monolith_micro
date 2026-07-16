@@ -30,11 +30,6 @@ async def analyze_ticket(
     """Classify and summarize a support ticket synchronously"""
     try:
         return await ticket_service.analyze(payload.text)
-    except NotImplementedError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Classification service not implemented yet",
-        ) from exc
     except IntegrityDataException as exc:
         raise HTTPException(
             status_code=exc.status_code,

@@ -7,4 +7,5 @@ class BaseRepository:
     _session: AsyncSession
 
     def __init__(self, session: AsyncSession) -> None:
+        """Store the session this repository issues its queries on"""
         self._session = session

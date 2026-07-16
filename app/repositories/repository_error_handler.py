@@ -20,6 +20,7 @@ def sqlalchemy_exception_handler(func: Callable[..., Any]) -> Callable[..., Any]
 
     @wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        """Run func, translating known Postgres IntegrityErrors into IntegrityDataException"""
         try:
             return await func(*args, **kwargs)
         except IntegrityError as exc:

@@ -10,6 +10,7 @@ class TicketAnalyzeRequest(BaseModel):
 
     text: str = Field(
         ...,
+        max_length=500,
         examples=["Здравствуйте, хочу снять квартиру в центре, бюджет 40 тысяч"],
     )
 

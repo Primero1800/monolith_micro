@@ -75,6 +75,9 @@ class TicketRepository(BaseRepository):
                 priority=result.priority,
                 entities=result.entities,
                 ai_used=result.ai_used,
+                prompt_tokens=result.prompt_tokens,
+                completion_tokens=result.completion_tokens,
+                llm_response_time_ms=result.llm_response_time_ms,
             )
             .returning(Ticket)
         )

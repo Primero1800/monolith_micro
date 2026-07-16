@@ -19,6 +19,9 @@ class ClassificationResult:
     priority: TicketPriorityEnum
     entities: dict[str, Any] | None
     ai_used: bool
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    llm_response_time_ms: int | None = None
 
 
 class Ticket(Base):
@@ -60,13 +63,18 @@ class Ticket(Base):
         server_default=text("false"),
         comment="Использовалась ли LLM для классификации",
     )
-    tokens_used: Mapped[int] = mapped_column(
+    prompt_tokens: Mapped[int] = mapped_column(
         default=0,
         server_default=text("0"),
-        comment="Суммарное число токенов, потраченных на обработку",
+        comment="Токены на входе (промпт) — обычно дешевле выходных",
     )
-    processing_time_ms: Mapped[int | None] = mapped_column(
-        comment="Время обработки в миллисекундах"
+    completion_tokens: Mapped[int] = mapped_column(
+        default=0,
+        server_default=text("0"),
+        comment="Токены на выходе (ответ модели) — обычно дороже входных",
+    )
+    llm_response_time_ms: Mapped[int | None] = mapped_column(
+        comment="Время именно LLM-запроса в миллисекундах (не всего тикета)"
     )
     retries: Mapped[int] = mapped_column(
         default=0,
