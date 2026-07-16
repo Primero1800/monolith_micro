@@ -276,3 +276,116 @@ async def test_analyze_persists_ticket_before_classification() -> None:
     created_ticket = repo.create.await_args.args[0]
     assert created_ticket.status == TicketStatusEnum.PROCESSING
     assert created_ticket.raw_text == "любой текст"
+
+
+@pytest.mark.asyncio
+async def test_create_draft_persists_ticket_as_draft_without_classifying() -> None:
+    """create_draft() saves a draft ticket for the scheduler and never touches the LLM"""
+    repo = AsyncMock()
+    repo.create.return_value = _make_ticket(id=10, status=TicketStatusEnum.DRAFT)
+    ai_client = AsyncMock()
+    base_deps = BaseDeps(uow_factory=_FakeUowFactory(repo), ai_client=ai_client)
+    service = TicketService(base_deps=base_deps, uow=_FakeUow(repo))
+
+    result = await service.create_draft("хочу снять квартиру")
+
+    assert result.status == TicketStatusEnum.DRAFT
+    repo.create.assert_awaited_once()
+    created_ticket = repo.create.await_args.args[0]
+    assert created_ticket.status == TicketStatusEnum.DRAFT
+    assert created_ticket.raw_text == "хочу снять квартиру"
+    assert created_ticket.normalized_text == "хочу снять квартиру"
+    ai_client.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_returns_the_matching_ticket() -> None:
+    """get_ticket() delegates straight to the repository's get_by_id lookup"""
+    repo = AsyncMock()
+    expected_ticket = _make_ticket(id=11, status=TicketStatusEnum.READY)
+    repo.get_by_id.return_value = expected_ticket
+    base_deps = BaseDeps(uow_factory=_FakeUowFactory(repo), ai_client=None)
+    service = TicketService(base_deps=base_deps, uow=_FakeUow(repo))
+
+    result = await service.get_ticket(11)
+
+    assert result is expected_ticket
+    repo.get_by_id.assert_awaited_once_with(11)
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_returns_none_when_not_found() -> None:
+    """get_ticket() returns None as-is when the repository finds nothing, no error raised"""
+    repo = AsyncMock()
+    repo.get_by_id.return_value = None
+    base_deps = BaseDeps(uow_factory=_FakeUowFactory(repo), ai_client=None)
+    service = TicketService(base_deps=base_deps, uow=_FakeUow(repo))
+
+    result = await service.get_ticket(999)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_claim_pending_delegates_to_repository() -> None:
+    """claim_pending() passes batch_size/stuck_after_sec straight through to the repository"""
+    repo = AsyncMock()
+    expected = [_make_ticket(id=20), _make_ticket(id=21)]
+    repo.claim_pending.return_value = expected
+    service = _make_service(repo)
+
+    result = await service.claim_pending(batch_size=5, stuck_after_sec=30)
+
+    assert result == expected
+    repo.claim_pending.assert_awaited_once_with(5, 30)
+
+
+@pytest.mark.asyncio
+async def test_process_pending_runs_the_pipeline_on_an_existing_ticket() -> None:
+    """process_pending() classifies an already-claimed ticket without creating a new one"""
+    repo = AsyncMock()
+    repo.find_ready_by_normalized_text.return_value = None
+    repo.mark_ready.return_value = _make_ticket(
+        id=30, status=TicketStatusEnum.READY, category=TicketCategoryEnum.RENT
+    )
+    ai_client = AsyncMock()
+    service = _make_service(repo, ai_client)
+    claimed_ticket = _make_ticket(
+        id=30,
+        raw_text="хочу снять квартиру",
+        normalized_text="хочу снять квартиру",
+        status=TicketStatusEnum.PROCESSING,
+    )
+
+    result = await service.process_pending(claimed_ticket)
+
+    assert result.category == TicketCategoryEnum.RENT
+    repo.create.assert_not_called()
+    ai_client.chat.assert_not_called()
+    mark_ready_call = repo.mark_ready.await_args
+    assert mark_ready_call.args[0] == 30
+
+
+@pytest.mark.asyncio
+async def test_process_pending_marks_failed_on_llm_failure() -> None:
+    """process_pending() marks the ticket failed the same way analyze() would, on LLM failure"""
+    repo = AsyncMock()
+    repo.find_ready_by_normalized_text.return_value = None
+    repo.mark_failed.return_value = _make_ticket(id=31, status=TicketStatusEnum.FAILED)
+    ai_client = AsyncMock()
+    ai_client.chat.return_value = ChatResult(
+        content=None, prompt_tokens=0, completion_tokens=0, total_tokens=0
+    )
+    service = _make_service(repo, ai_client)
+    claimed_ticket = _make_ticket(
+        id=31,
+        raw_text="Добрый день, подскажите пожалуйста по вашей компании",
+        normalized_text="добрый день подскажите пожалуйста по вашей компании",
+        status=TicketStatusEnum.PROCESSING,
+    )
+
+    result = await service.process_pending(claimed_ticket)
+
+    assert result.status == TicketStatusEnum.FAILED
+    repo.mark_failed.assert_awaited_once()
+    assert repo.mark_failed.await_args.args[0] == 31

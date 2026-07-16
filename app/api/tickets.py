@@ -13,6 +13,7 @@ from app.pyd.tickets import (
     TicketAdminResponse,
     TicketAnalyzeRequest,
     TicketAnalyzeResponse,
+    TicketDraftResponse,
 )
 from app.services.ticket_service import TicketService
 
@@ -52,7 +53,7 @@ async def analyze_ticket(
 
 @router.post(
     "",
-    response_model=TicketAnalyzeResponse,
+    response_model=TicketDraftResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )
 @log_decorator(level=logging.INFO)

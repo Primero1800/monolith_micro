@@ -3,7 +3,7 @@ from typing import Annotated, Callable, Type, TypeVar
 from fastapi import Depends
 
 from app.adapters.ai_client import AIClientAbstract
-from app.dependencies.infrastructure import get_ai_client
+from app.dependencies.infrastructure import get_ai_client, get_aiohttp_session
 from app.services.base import BaseDeps, BaseService
 from app.services.health_check_service import HealthCheckService
 from app.services.ticket_service import TicketService
@@ -16,6 +16,14 @@ async def get_base_deps(
 ) -> BaseDeps:
     """Assemble and return base infrastructure dependencies"""
     return BaseDeps(uow_factory=uow_factory, ai_client=ai_client)
+
+
+async def get_base_deps_standalone() -> BaseDeps:
+    """Assemble BaseDeps outside of FastAPI request context (scheduler jobs)"""
+    return BaseDeps(
+        uow_factory=await get_uow_factory(),
+        ai_client=await get_ai_client(await get_aiohttp_session()),
+    )
 
 
 T = TypeVar("T", bound=BaseService)

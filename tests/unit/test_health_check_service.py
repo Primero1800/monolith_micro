@@ -38,9 +38,20 @@ def _make_service(uow_factory: object) -> HealthCheckService:
 @pytest.mark.asyncio
 async def test_check_db_status_raises_db_health_check_error_on_timeout(mocker) -> None:
     """A probe that exceeds HEALTH_CHECK_TIMEOUT_SEC is reported as DBHealthCheckError"""
+
+    async def _time_out(coro: object, timeout: float) -> None:
+        """Stand-in for asyncio.wait_for: close the pending coroutine, then time out
+
+        Closing it avoids a "coroutine was never awaited" RuntimeWarning — the
+        real coro argument is created before wait_for ever runs, so a bare
+        side_effect=TimeoutError would leak it unawaited.
+        """
+        coro.close()  # type: ignore[attr-defined]
+        raise asyncio.TimeoutError
+
     mocker.patch(
         "app.services.health_check_service.asyncio.wait_for",
-        side_effect=asyncio.TimeoutError,
+        side_effect=_time_out,
     )
     service = _make_service(_FakeUow())
 

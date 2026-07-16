@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "mistral-small-latest"
     LLM_TIMEOUT_SEC: int = 30
 
+    SCHEDULER_TICK_SEC: int = 5
+    SCHEDULER_BATCH_SIZE: int = 5
+    PROCESSING_TIMEOUT_SEC: int = 30
+    MAX_RETRIES: int = 3
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
