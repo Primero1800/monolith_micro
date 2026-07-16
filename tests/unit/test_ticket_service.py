@@ -133,7 +133,9 @@ async def test_analyze_no_duplicate_falls_through_to_llm_success() -> None:
     service = _make_service(repo, ai_client)
 
     # No category keyword and no dedup match, so this must fall through to the LLM
-    result = await service.analyze("Добрый день, подскажите пожалуйста по вашей компании")
+    result = await service.analyze(
+        "Добрый день, подскажите пожалуйста по вашей компании"
+    )
 
     assert result.category == TicketCategoryEnum.SALE
     ai_client.chat.assert_awaited_once()
@@ -147,7 +149,9 @@ async def test_analyze_no_duplicate_falls_through_to_llm_success() -> None:
 
 
 @pytest.mark.asyncio
-async def test_analyze_short_unambiguous_text_uses_regex_fast_path_without_llm() -> None:
+async def test_analyze_short_unambiguous_text_uses_regex_fast_path_without_llm() -> (
+    None
+):
     """Short text matching exactly one category's keyword is classified without calling the LLM"""
     repo = AsyncMock()
     repo.create.return_value = _make_ticket(id=8)

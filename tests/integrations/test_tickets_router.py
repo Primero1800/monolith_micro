@@ -5,8 +5,10 @@ import pytest
 from httpx import AsyncClient
 
 from app.adapters.ai_client import ChatResult
+from app.common.exceptions import IntegrityDataException
 from app.dependencies.infrastructure import get_ai_client
 from app.main import app
+from app.services.ticket_service import TicketService
 
 
 def _override_ai_client(fake_client: AsyncMock) -> None:
@@ -173,3 +175,27 @@ async def test_analyze_rejects_missing_text_field(
     response = await async_client.post("/api/v1/tickets/analyze", json={})
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_analyze_translates_integrity_data_exception_to_http_error(
+    empty_db, async_client: AsyncClient, mocker
+) -> None:
+    """A genuine DB integrity error from the service surfaces as its mapped HTTP status/detail"""
+    mocker.patch.object(
+        TicketService,
+        "analyze",
+        side_effect=IntegrityDataException(
+            detail="Key (id)=(1) already exists.",
+            status_code=409,
+            headers={"X-Reason": "duplicate"},
+        ),
+    )
+
+    response = await async_client.post(
+        "/api/v1/tickets/analyze", json={"text": "любой текст"}
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Key (id)=(1) already exists."
+    assert response.headers["x-reason"] == "duplicate"
